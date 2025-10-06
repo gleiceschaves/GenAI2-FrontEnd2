@@ -1,12 +1,21 @@
 import { request } from "@/lib/api/client";
 import { type CreateReportPayload, type Report, type ReportSignature } from "@/lib/api/types";
 
-export const fetchReports = (params?: { q?: string; page?: number; pageSize?: number }) => {
-  return request<Report[]>({
+interface PaginatedReports {
+  items: Report[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const fetchReports = async (params?: { q?: string; page?: number; pageSize?: number }) => {
+  const response = await request<PaginatedReports>({
     method: "GET",
     url: "/reports",
     params,
   });
+
+  return response.items;
 };
 
 export const createReport = (payload: CreateReportPayload) => {

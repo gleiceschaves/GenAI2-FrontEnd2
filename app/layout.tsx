@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "@copilotkit/react-ui/styles.css";
+import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { AppProviders } from "@/components/providers/app-providers";
 
@@ -37,6 +39,7 @@ export default function RootLayout({
         )}
       >
         <AppProviders>{children}</AppProviders>
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );

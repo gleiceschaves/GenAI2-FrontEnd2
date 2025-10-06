@@ -2,12 +2,15 @@
 
 import { CopilotKit } from "@copilotkit/react-core";
 import type { ReactNode } from "react";
-
-const DEFAULT_AGENT_NAME = "reports-agent";
+import { COPILOT_AGENT_NAME, COPILOT_RUNTIME_URL } from "@/lib/config";
 
 export function CopilotProvider({ children }: { children: ReactNode }) {
   return (
-    <CopilotKit agent={DEFAULT_AGENT_NAME} showDevConsole={process.env.NODE_ENV !== "production"}>
+    <CopilotKit
+      agent={COPILOT_AGENT_NAME}
+      runtimeUrl={COPILOT_RUNTIME_URL}
+      showDevConsole={process.env.NODE_ENV !== "production"}
+    >
       {children}
     </CopilotKit>
   );

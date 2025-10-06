@@ -3,8 +3,10 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from "react";
 import type { Report, RunSnapshot } from "@/lib/api/types";
 
+type SessionReport = Pick<Report, "id" | "name" | "latestSignatureVersion">;
+
 interface RunSessionState {
-  report: Report | null;
+  report: SessionReport | null;
   runId: string | null;
   snapshot: RunSnapshot | null;
   isStreaming: boolean;
@@ -12,7 +14,7 @@ interface RunSessionState {
 }
 
 type RunSessionAction =
-  | { type: "setReport"; payload: Report | null }
+  | { type: "setReport"; payload: SessionReport | null }
   | { type: "setRun"; payload: { runId: string | null } }
   | { type: "setSnapshot"; payload: RunSnapshot | null }
   | { type: "setStreaming"; payload: boolean }
@@ -59,7 +61,7 @@ const runSessionReducer = (state: RunSessionState, action: RunSessionAction): Ru
 
 interface RunSessionContextValue {
   state: RunSessionState;
-  setReport: (report: Report | null) => void;
+  setReport: (report: SessionReport | null) => void;
   setRunId: (runId: string | null) => void;
   setSnapshot: (snapshot: RunSnapshot | null) => void;
   setStreaming: (value: boolean) => void;
@@ -71,10 +73,9 @@ const RunSessionContext = createContext<RunSessionContextValue | undefined>(unde
 export const RunSessionProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(runSessionReducer, initialState);
 
-  const setReport = useCallback(
-    (report: Report | null) => dispatch({ type: "setReport", payload: report }),
-    [],
-  );
+  const setReport = useCallback((report: SessionReport | null) => {
+    dispatch({ type: "setReport", payload: report });
+  }, []);
   const setRunId = useCallback(
     (runId: string | null) => dispatch({ type: "setRun", payload: { runId } }),
     [],

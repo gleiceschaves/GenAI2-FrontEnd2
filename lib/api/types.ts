@@ -1,12 +1,19 @@
 export type RunNodeName = "ingest_docs" | "ocr_extract" | "validate" | "finalize" | "error";
 
-export type RunStatus = "created" | "pending" | "running" | "structuring" | "done" | "error";
+export type RunStatus =
+  | "created"
+  | "pending"
+  | "running"
+  | "structuring"
+  | "uploading"
+  | "done"
+  | "error";
 
 export interface Report {
   id: number;
   name: string;
   latestSignatureVersion: number | null;
-  runCount: number;
+  runsCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,10 +28,10 @@ export interface ReportSignature {
 
 export interface Run {
   id: string;
-  reportId: number;
+  reportId?: number;
   status: RunStatus;
-  progress: number;
-  context: string | null;
+  progress?: number | null;
+  context?: string | null;
   signatureVersion: number | null;
   createdAt: string;
   updatedAt: string;
