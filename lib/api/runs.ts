@@ -77,6 +77,13 @@ export const fetchRunsForReport = async (reportId: string | number) => {
     url: `/reports/${reportId}/runs`,
   });
 
+  if (typeof window !== "undefined") {
+    console.info("[api][runs] fetched", {
+      reportId,
+      count: response.items.length,
+    });
+  }
+
   return response.items.map((item) => {
     const numericReportId = typeof reportId === "string" ? Number.parseInt(reportId, 10) : reportId;
     return {

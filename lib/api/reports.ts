@@ -15,6 +15,13 @@ export const fetchReports = async (params?: { q?: string; page?: number; pageSiz
     params,
   });
 
+  if (typeof window !== "undefined") {
+    console.info("[api][reports] fetched", {
+      query: params,
+      count: response.items.length,
+    });
+  }
+
   return response.items;
 };
 
