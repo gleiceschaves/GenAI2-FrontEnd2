@@ -1,0 +1,370 @@
+{
+	"info": {
+		"_postman_id": "8f6e257a-fd41-43b6-b8cc-3ae6572e962e",
+		"name": "LangGraph Backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "3876719",
+		"_collection_link": "https://winter-rocket-223232.postman.co/workspace/Reswap-Workspace~4cdbe1e1-5674-42a3-a6a4-556f872b56e1/collection/3876719-8f6e257a-fd41-43b6-b8cc-3ae6572e962e?action=share&source=collection_link&creator=3876719"
+	},
+	"item": [
+		{
+			"name": "Reports",
+			"item": [
+				{
+					"name": "List Reports",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Report",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"CBC-Panel\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reports",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Report",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports/{{reportId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports",
+								"{{reportId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Report Signature",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports/{{reportId}}/signature",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports",
+								"{{reportId}}",
+								"signature"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Report Signature",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"signature\": {\n        \"fields\": [\n            {\n                \"name\": \"string\"\n            }\n        ]\n    },\n    \"status\": \"proposed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reports/5698/signature",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports",
+								"5698",
+								"signature"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Report Runs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports/{{reportId}}/runs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports",
+								"{{reportId}}",
+								"runs"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Run (per report)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"context\": \"Prefer SI units\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reports/{{reportId}}/runs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reports",
+								"{{reportId}}",
+								"runs"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Runs",
+			"item": [
+				{
+					"name": "Create Run",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reportName\": \"CBC-Panel\",\n  \"context\": \"Prefer SI units\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/runs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"runs"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Run",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/runs/{{runId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"runs",
+								"{{runId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Run Documents",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "files",
+									"type": "file",
+									"src": "<path-to-file>"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/runs/{{runId}}/upload",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"runs",
+								"{{runId}}",
+								"upload"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Start Run",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/runs/{{runId}}/start",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"runs",
+								"{{runId}}",
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Stream Run (SSE)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "text/event-stream"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/runs/{{runId}}/stream",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"runs",
+								"{{runId}}",
+								"stream"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Run Output",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/outputs/{{runId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"outputs",
+								"{{runId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Health",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000"
+		},
+		{
+			"key": "reportId",
+			"value": "1"
+		},
+		{
+			"key": "runId",
+			"value": "run_SAMPLE"
+		}
+	]
+}
