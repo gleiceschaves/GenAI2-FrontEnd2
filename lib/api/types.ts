@@ -19,10 +19,9 @@ export interface Report {
 }
 
 export interface ReportSignature {
-  reportId: number;
   version: number;
-  status: "proposed" | "current" | "archived";
-  schema: unknown;
+  signature: unknown;  // Backend returns 'signature', not 'schema'
+  status: "proposed" | "active" | "archived";
   updatedAt: string;
 }
 
@@ -85,4 +84,30 @@ export interface CreateRunPayload {
 
 export interface UploadDocumentsResponse {
   docIds: string[];
+}
+
+// LangGraph State Shape - matches backend GraphState for CopilotKit integration
+export interface GraphState {
+  report: {
+    id: number;
+    name: string;
+    latestSignatureVersion: number | null;
+  };
+  runId: string;
+  status: RunStatus;
+  progress: number;
+  docs: RunDocument[];
+  context?: string | null;
+  outputJson?: Record<string, unknown> | null;
+  signatureVersion?: number | null;
+  signature?: unknown;
+  addedFields?: string[];
+  conflicts?: ValidationConflict[];
+  validationReport?: {
+    errors: string[];
+    warnings: string[];
+  } | null;
+  error?: string | null;
+  updatedAt: string;
+  node?: RunNodeName;
 }

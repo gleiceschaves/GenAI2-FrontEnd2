@@ -244,7 +244,7 @@ export default function ReportRunsPage() {
                   Updated {formatDate(signature.updatedAt)}
                 </div>
                 <pre className="max-h-[420px] overflow-auto rounded-md bg-slate-950/90 p-4 text-xs text-slate-100">
-                  {JSON.stringify(signature.schema, null, 2)}
+                  {JSON.stringify(signature.signature, null, 2)}
                 </pre>
               </div>
             ) : (

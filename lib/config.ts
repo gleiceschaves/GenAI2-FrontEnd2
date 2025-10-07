@@ -1,6 +1,6 @@
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
 const DEFAULT_COPILOT_AGENT_PATH = "/copilot";
-const DEFAULT_COPILOT_AGENT_NAME = "reports-agent";
+const DEFAULT_COPILOT_AGENT_NAME = "langgraph-backend";  // Must match useCoAgent name
 
 const normalizePath = (path: string) => {
   if (!path.startsWith("/")) {

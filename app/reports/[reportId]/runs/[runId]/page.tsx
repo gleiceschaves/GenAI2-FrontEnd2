@@ -6,7 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Upload, Play, Paperclip, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { CopilotChat } from "@copilotkit/react-ui";
-import { useCopilotAdditionalInstructions, useCopilotChat } from "@copilotkit/react-core";
+import { 
+  useCopilotAdditionalInstructions, 
+  useCopilotChat,
+  useCoAgent 
+} from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
@@ -15,8 +19,7 @@ import { useRunSession } from "@/context/run-session-context";
 import { queryKeys } from "@/lib/query-keys";
 import { fetchRunOutput, getRun, startRun, uploadRunDocuments } from "@/lib/api/runs";
 import { getReportSignature } from "@/lib/api/reports";
-import type { ReportSignature, RunDocument, RunSnapshot } from "@/lib/api/types";
-import { useRunStream } from "@/hooks/use-run-stream";
+import type { GraphState, ReportSignature, RunDocument, RunSnapshot } from "@/lib/api/types";
 import { extractErrorMessage } from "@/lib/api/client";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -126,6 +129,11 @@ export default function RunWorkspacePage() {
 
   const streamingEnabled = snapshot != null && !["done", "error"].includes(snapshot.status);
 
+  // CopilotKit integration: Connect to LangGraph agent state
+  const { state: agentState, setState: setAgentState } = useCoAgent<GraphState>({
+    name: "langgraph-backend",  // Must match backend agent name
+  });
+
   useEffect(() => {
     if (runQuery.data) {
       setReport(runQuery.data.report);
@@ -156,27 +164,31 @@ export default function RunWorkspacePage() {
     available: report ? "enabled" : "disabled",
   });
 
-  useRunStream(runId ?? null, {
-    enabled: streamingEnabled,
-    onMessage: (streamSnapshot) => {
-      setStreamError(null);
-      streamErrorEmittedRef.current = false;
-      setSnapshot(streamSnapshot);
-      setReport(streamSnapshot.report);
-      setRunId(streamSnapshot.runId);
-      queryClient.setQueryData(queryKeys.run(runId), streamSnapshot);
-    },
-    onError: () => {
-      const message = "Live updates interrupted. Falling back to polling.";
-      setStreamError(message);
-      setStreaming(false);
-      if (!streamErrorEmittedRef.current) {
-        toast.error(message);
-        streamErrorEmittedRef.current = true;
+  // Sync agent state from CopilotKit to local state
+  useEffect(() => {
+    if (agentState && agentState.runId === runId) {
+      setSnapshot(agentState);
+      setReport(agentState.report);
+      queryClient.setQueryData(queryKeys.run(runId), agentState);
+      
+      // Clear stream errors when state updates successfully
+      if (streamError) {
+        setStreamError(null);
+        streamErrorEmittedRef.current = false;
       }
-      runQuery.refetch().catch(() => undefined);
-    },
-  });
+      
+      // Update streaming status
+      const isStreaming = !["done", "error"].includes(agentState.status);
+      setStreaming(isStreaming);
+    }
+  }, [agentState, runId, queryClient, streamError, setReport, setStreaming]);
+
+  // Initialize agent state when run data first loads
+  useEffect(() => {
+    if (runQuery.data && setAgentState) {
+      setAgentState(runQuery.data);
+    }
+  }, [runQuery.data, setAgentState]);
 
   const selectedDoc = useMemo(() => {
     if (!selectedDocId) {
@@ -228,6 +240,12 @@ export default function RunWorkspacePage() {
     snapshot != null &&
     !["running", "structuring", "done"].includes(snapshot.status);
 
+  // Allow download if status is "done" OR if there's output despite error status
+  const canDownload = snapshot != null && (
+    snapshot.status === "done" || 
+    (snapshot.status === "error" && snapshot.outputJson != null)
+  );
+
   return (
     <main className="flex flex-1 flex-col gap-6 p-6 pb-12 lg:p-8">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -249,7 +267,7 @@ export default function RunWorkspacePage() {
           <Button
             variant="secondary"
             onClick={() => downloadMutation.mutate()}
-            disabled={snapshot?.status !== "done" || downloadMutation.isPending}
+            disabled={!canDownload || downloadMutation.isPending}
           >
             {downloadMutation.isPending ? (
               <>
@@ -379,7 +397,7 @@ function LeftPreviewPanel({
           </div>
         ) : signature ? (
           <pre className="max-h-[420px] whitespace-pre-wrap break-words text-xs">
-            {JSON.stringify(signature.schema, null, 2)}
+            {JSON.stringify(signature.signature, null, 2)}
           </pre>
         ) : (
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 text-slate-500">
