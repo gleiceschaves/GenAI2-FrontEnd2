@@ -1,6 +1,6 @@
 # GenAI2 Frontend
 
-Copilot-powered web UI for managing report runs. Built with Next.js App Router, React Query, CopilotKit UI, and Tailwind CSS.
+Healthcare document processing web UI with real-time updates and AI chat. Built with Next.js 15 App Router, React Query, CopilotKit (chat-only mode), and Tailwind CSS. Features SSE-based real-time pipeline status updates and signature display.
 
 ## Prerequisites
 
@@ -10,8 +10,8 @@ Copilot-powered web UI for managing report runs. Built with Next.js App Router, 
   - `GET /reports`, `POST /reports`
   - `GET /reports/{id}/runs`, `POST /reports/{id}/runs`
   - `GET /runs/{id}`, `POST /runs/{id}/start`, `POST /runs/{id}/upload`
-  - `GET /runs/{id}/stream` (SSE)
-  - `POST /copilot` (CopilotKit agent endpoint)
+  - `GET /runs/{id}/stream` (SSE for real-time status updates)
+  - `POST /copilot` (CopilotKit chat endpoint)
 
 ## Setup
 
@@ -58,11 +58,17 @@ lib/
   config.ts           # Environment resolution helpers
 ```
 
-## Copilot Integration
+## Real-Time Updates & Chat
 
-- Layout wraps the tree with `<CopilotKit>` so Copilot chat UI is active.
-- `COPILOT_RUNTIME_URL` is computed from env vars and points to the backend `/copilot` endpoint.
-- Run workspace streams `GET /runs/{runId}/stream`, pushes snapshots into CopilotKit state, and renders `<CopilotChat>` for the right-hand chat panel.
+- **SSE Streaming**: Uses `useRunStream` hook to connect to `GET /runs/{runId}/stream` for real-time pipeline status updates (uploading → ocr → structuring → validating → finalizing → done).
+- **CopilotKit Chat**: Layout wraps the tree with `<CopilotKit>` in chat-only mode (no agent state management). The `/copilot` endpoint provides chat functionality.
+- **Run workspace**: Displays live pipeline progress with signature fields populating as data is extracted. Uses React Query for data caching and EventSource for SSE connections.
+
+### Architecture Notes
+- Per-run state tracking via dedicated SSE endpoints (`/runs/{runId}/stream`)
+- React Context (`RunSessionProvider`) manages current report/run session
+- Callback memoization with `useCallback` and ref-based pattern prevents SSE reconnections
+- CopilotKit agent mode is **disabled** to avoid conflicts with per-run architecture
 
 ## Available Scripts
 
@@ -76,8 +82,17 @@ lib/
 ## Troubleshooting
 
 - **Still hitting localhost?** Ensure `.env` has `NEXT_PUBLIC_API_BASE_URL`, delete `.next/`, and restart `npm run dev`. Check browser console for `[config] API_BASE_URL`.
-- **SSE disconnects?** When the stream drops, the UI falls back to polling and shows a warning toast; verify the backend `/runs/{id}/stream` endpoint.
+- **SSE disconnects?** When the stream drops, the UI falls back to polling and shows a warning toast; verify the backend `/runs/{id}/stream` endpoint. Open browser DevTools console and look for `[SSE] Received update` logs.
+- **Status stuck at "uploading"?** Hard refresh (Ctrl+Shift+R on Windows, Cmd+Shift+R on Mac) and check Network tab for persistent `/runs/{runId}/stream` connection.
+- **422 errors or toast messages?** Ensure CopilotKit is in chat-only mode (no `agent` prop in `copilot-provider.tsx`).
 - **File upload rejected?** Files must be under 25 MB and have one of the allowed MIME types (PDF, JSON, text, PNG, JPEG/WEBP). Errors surface as toasts.
+
+## Recent Fixes
+
+- **✅ Signature loading**: Backend now loads 19-field signature from database in `/runs/{runId}` endpoint
+- **✅ Status display**: Removed notify node so pipeline completes with status="done" instead of "error"
+- **✅ Real-time updates**: Restored SSE-based updates via `useRunStream` hook with proper callback memoization
+- **✅ CopilotKit 422 errors**: Disabled agent mode to prevent unnecessary `/copilot` state management calls
 
 ## Deployment Notes
 

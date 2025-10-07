@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type ChangeEvent } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Upload, Play, Paperclip, AlertTriangle } from "lucide-react";
@@ -8,18 +8,18 @@ import { toast } from "sonner";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { 
   useCopilotAdditionalInstructions, 
-  useCopilotChat,
-  useCoAgent 
+  useCopilotChat
 } from "@copilotkit/react-core";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useRunSession } from "@/context/run-session-context";
+import { useRunStream } from "@/hooks/use-run-stream";
 import { queryKeys } from "@/lib/query-keys";
 import { fetchRunOutput, getRun, startRun, uploadRunDocuments } from "@/lib/api/runs";
 import { getReportSignature } from "@/lib/api/reports";
-import type { GraphState, ReportSignature, RunDocument, RunSnapshot } from "@/lib/api/types";
+import type { ReportSignature, RunDocument, RunSnapshot } from "@/lib/api/types";
 import { extractErrorMessage } from "@/lib/api/client";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -129,9 +129,31 @@ export default function RunWorkspacePage() {
 
   const streamingEnabled = snapshot != null && !["done", "error"].includes(snapshot.status);
 
-  // CopilotKit integration: Connect to LangGraph agent state
-  const { state: agentState, setState: setAgentState } = useCoAgent<GraphState>({
-    name: "langgraph-backend",  // Must match backend agent name
+  // Real-time updates via SSE - memoize callbacks to prevent reconnections
+  const handleStreamMessage = useCallback((streamSnapshot: RunSnapshot) => {
+    setStreamError(null);
+    streamErrorEmittedRef.current = false;
+    setSnapshot(streamSnapshot);
+    setReport(streamSnapshot.report);
+    setRunId(streamSnapshot.runId);
+    // Update query cache without triggering refetch
+    queryClient.setQueryData(queryKeys.run(streamSnapshot.runId), streamSnapshot);
+  }, [queryClient, setReport, setRunId, setSnapshot]);
+
+  const handleStreamError = useCallback(() => {
+    const message = "Live updates interrupted. Falling back to polling.";
+    setStreamError(message);
+    setStreaming(false);
+    if (!streamErrorEmittedRef.current) {
+      toast.warning(message);
+      streamErrorEmittedRef.current = true;
+    }
+  }, [setStreaming]);
+
+  useRunStream(runId ?? null, {
+    enabled: streamingEnabled,
+    onMessage: handleStreamMessage,
+    onError: handleStreamError,
   });
 
   useEffect(() => {
@@ -163,32 +185,6 @@ export default function RunWorkspacePage() {
       : "You are assisting with an ongoing report run.",
     available: report ? "enabled" : "disabled",
   });
-
-  // Sync agent state from CopilotKit to local state
-  useEffect(() => {
-    if (agentState && agentState.runId === runId) {
-      setSnapshot(agentState);
-      setReport(agentState.report);
-      queryClient.setQueryData(queryKeys.run(runId), agentState);
-      
-      // Clear stream errors when state updates successfully
-      if (streamError) {
-        setStreamError(null);
-        streamErrorEmittedRef.current = false;
-      }
-      
-      // Update streaming status
-      const isStreaming = !["done", "error"].includes(agentState.status);
-      setStreaming(isStreaming);
-    }
-  }, [agentState, runId, queryClient, streamError, setReport, setStreaming]);
-
-  // Initialize agent state when run data first loads
-  useEffect(() => {
-    if (runQuery.data && setAgentState) {
-      setAgentState(runQuery.data);
-    }
-  }, [runQuery.data, setAgentState]);
 
   const selectedDoc = useMemo(() => {
     if (!selectedDocId) {

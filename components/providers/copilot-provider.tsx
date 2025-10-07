@@ -2,12 +2,11 @@
 
 import { CopilotKit } from "@copilotkit/react-core";
 import type { ReactNode } from "react";
-import { COPILOT_AGENT_NAME, COPILOT_RUNTIME_URL } from "@/lib/config";
+import { COPILOT_RUNTIME_URL } from "@/lib/config";
 
 export function CopilotProvider({ children }: { children: ReactNode }) {
   return (
     <CopilotKit
-      agent={COPILOT_AGENT_NAME}
       runtimeUrl={COPILOT_RUNTIME_URL}
       showDevConsole={process.env.NODE_ENV !== "production"}
     >
