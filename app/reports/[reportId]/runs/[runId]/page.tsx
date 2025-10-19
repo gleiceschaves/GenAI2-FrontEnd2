@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import { BackButton } from "@/components/back-button";
 import { useRunSession } from "@/context/run-session-context";
 import { useRunStream } from "@/hooks/use-run-stream";
 import { queryKeys } from "@/lib/query-keys";
@@ -244,6 +245,11 @@ export default function RunWorkspacePage() {
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-6 pb-12 lg:p-8">
+      <BackButton
+        fallbackHref={`/reports/${reportId}/runs`}
+        label="Back to runs"
+        className="self-start"
+      />
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-2">
           <p className="text-sm text-slate-500 dark:text-slate-400">

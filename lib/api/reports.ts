@@ -8,6 +8,7 @@ interface PaginatedReports {
   limit: number;
 }
 
+console.log("API_BASE_URL:", process.env.API_BASE_URL);
 export const fetchReports = async (params?: { q?: string; page?: number; pageSize?: number }) => {
   const response = await request<PaginatedReports>({
     method: "GET",
