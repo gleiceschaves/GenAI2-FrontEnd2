@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRunSession } from "@/context/run-session-context";
 import { extractErrorMessage } from "@/lib/api/client";
-import { createReport, fetchReports } from "@/lib/api/reports";
+import { createReport, deleteReport, fetchReports } from "@/lib/api/reports";
 import { createRunForReport } from "@/lib/api/runs";
 import type { Report } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -27,10 +27,11 @@ interface CreateReportFormState {
 export default function ReportsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { setReport, setRunId, setSnapshot } = useRunSession();
+  const { state: sessionState, setReport, setRunId, setSnapshot } = useRunSession();
 
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [reportIdDeleting, setReportIdDeleting] = useState<number | null>(null);
   const debouncedSearch = useDebouncedValue(search, 400);
 
   const reportsQuery = useQuery({
@@ -56,6 +57,31 @@ export default function ReportsPage() {
     },
   });
 
+  const deleteReportMutation = useMutation({
+    mutationFn: (reportId: number) => deleteReport(reportId),
+    onMutate: (reportId) => {
+      setReportIdDeleting(reportId);
+    },
+    onSuccess: async (_, reportId) => {
+      toast.success("Report deleted.");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reports({ q: "" }) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reports({ q: debouncedSearch }) });
+      queryClient.removeQueries({ queryKey: queryKeys.report(reportId) });
+      queryClient.removeQueries({ queryKey: queryKeys.runs(reportId) });
+      if (sessionState.report?.id === reportId) {
+        setReport(null);
+        setRunId(null);
+        setSnapshot(null);
+      }
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error));
+    },
+    onSettled: () => {
+      setReportIdDeleting(null);
+    },
+  });
+
   const reports = useMemo<Report[]>(() => reportsQuery.data ?? [], [reportsQuery.data]);
 
   const handleCreateReport = async (name: string) => {
@@ -78,6 +104,20 @@ export default function ReportsPage() {
     setRunId(null);
     setSnapshot(null);
     router.push(`/reports/${report.id}/runs`);
+  };
+
+  const handleDeleteReport = async (report: Report) => {
+    const confirmed = window.confirm(
+      `Delete report "${report.name}"? All runs and documents associated with it will be removed.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteReportMutation.mutateAsync(report.id);
+    } catch {
+      // Error handled in mutation callbacks.
+    }
   };
 
   return (
@@ -137,12 +177,15 @@ export default function ReportsPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Updated
                 </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
               {reportsQuery.isLoading ? (
                 <tr>
-                  <td colSpan={4} className="py-12">
+                  <td colSpan={5} className="py-12">
                     <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                       <Spinner />
                       <span className="text-sm">Loading reports...</span>
@@ -151,7 +194,7 @@ export default function ReportsPage() {
                 </tr>
               ) : reports.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12">
+                  <td colSpan={5} className="py-12">
                     <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
                       <span className="text-sm">
                         No reports yet. Create your first one to get started.
@@ -188,6 +231,26 @@ export default function ReportsPage() {
                     </td>
                     <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300">
                       {formatDate(report.updatedAt)}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <Button
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                        aria-label={`Delete report ${report.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteReport(report);
+                        }}
+                        disabled={
+                          deleteReportMutation.isPending && reportIdDeleting === report.id
+                        }
+                      >
+                        {deleteReportMutation.isPending && reportIdDeleting === report.id ? (
+                          <Spinner size={14} />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     </td>
                   </tr>
                 ))

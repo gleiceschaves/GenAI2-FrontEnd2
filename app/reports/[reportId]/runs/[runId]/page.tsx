@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback, type ChangeEvent } from "react";
-import { useParams } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  type ChangeEvent,
+  type MutableRefObject,
+} from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Upload, Play, Paperclip, AlertTriangle } from "lucide-react";
+import { Download, Upload, Play, Paperclip, AlertTriangle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { 
@@ -19,7 +27,14 @@ import { BackButton } from "@/components/back-button";
 import { useRunSession } from "@/context/run-session-context";
 import { useRunStream } from "@/hooks/use-run-stream";
 import { queryKeys } from "@/lib/query-keys";
-import { fetchRunOutput, getRun, startRun, uploadRunDocuments } from "@/lib/api/runs";
+import {
+  deleteRun,
+  deleteRunDocument,
+  fetchRunOutput,
+  getRun,
+  startRun,
+  uploadRunDocuments,
+} from "@/lib/api/runs";
 import { getReportSignature } from "@/lib/api/reports";
 import type { ReportSignature, RunDocument, RunSnapshot } from "@/lib/api/types";
 import { extractErrorMessage } from "@/lib/api/client";
@@ -40,6 +55,7 @@ export default function RunWorkspacePage() {
     reportId: string;
     runId: string;
   }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { state: sessionState, setReport, setRunId, setSnapshot, setStreaming } = useRunSession();
 
@@ -49,6 +65,7 @@ export default function RunWorkspacePage() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const { reset } = useCopilotChat({ id: `run-${runId}` });
 
@@ -124,6 +141,61 @@ export default function RunWorkspacePage() {
     },
   });
 
+  const deleteRunMutation = useMutation({
+    mutationFn: () => deleteRun(runId),
+    onSuccess: async () => {
+      toast.success("Run deleted.");
+      setRunId(null);
+      setSnapshot(null);
+      setStreaming(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.runs(reportId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.report(reportId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reports({ q: "" }) });
+      queryClient.removeQueries({ queryKey: queryKeys.run(runId) });
+      router.push(`/reports/${reportId}/runs`);
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error));
+    },
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (docId: string) => deleteRunDocument(runId, docId),
+    onMutate: (docId) => {
+      setDeletingDocId(docId);
+    },
+    onSuccess: (_, docId) => {
+      toast.success("Document deleted.");
+      queryClient
+        .setQueryData<RunSnapshot | undefined>(queryKeys.run(runId), (existing) =>
+          existing
+            ? {
+                ...existing,
+                docs: existing.docs.filter((doc) => doc.id !== docId),
+                updatedAt: new Date().toISOString(),
+              }
+            : existing,
+        );
+      const currentSnapshot = sessionState.snapshot;
+      if (currentSnapshot) {
+        const updatedDocs = currentSnapshot.docs.filter((doc) => doc.id !== docId);
+        setSnapshot({
+          ...currentSnapshot,
+          docs: updatedDocs,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      setSelectedDocId((prev) => (prev === docId ? null : prev));
+      queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) }).catch(() => undefined);
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error));
+    },
+    onSettled: () => {
+      setDeletingDocId(null);
+    },
+  });
+
   const snapshot = sessionState.snapshot ?? runQuery.data ?? null;
   const docs = useMemo(() => snapshot?.docs ?? [], [snapshot?.docs]);
   const report = snapshot?.report ?? null;
@@ -132,6 +204,35 @@ export default function RunWorkspacePage() {
   const streamingEnabled = snapshot != null && !["done", "error"].includes(snapshot.status);
 
   const reportLabel = report?.name ?? `Report ${reportId}`;
+
+  const handleDeleteRun = async () => {
+    if (!runId) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete run ${runId}? Uploaded documents, live snapshots, and outputs will be removed.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteRunMutation.mutateAsync();
+    } catch {
+      // Error toast handled in mutation callbacks.
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    const confirmed = window.confirm("Delete this document from the run? This cannot be undone.");
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteDocumentMutation.mutateAsync(docId);
+    } catch {
+      // Error toast handled in mutation callbacks.
+    }
+  };
 
   // Real-time updates via SSE - memoize callbacks to prevent reconnections
   const handleStreamMessage = useCallback((streamSnapshot: RunSnapshot) => {
@@ -279,6 +380,23 @@ export default function RunWorkspacePage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            variant="destructive"
+            onClick={handleDeleteRun}
+            disabled={deleteRunMutation.isPending}
+          >
+            {deleteRunMutation.isPending ? (
+              <>
+                <Spinner size={16} />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 className="h-4 w-4" />
+                Delete run
+              </>
+            )}
+          </Button>
+          <Button
             variant="secondary"
             onClick={() => downloadMutation.mutate()}
             disabled={!canDownload || downloadMutation.isPending}
@@ -360,6 +478,9 @@ export default function RunWorkspacePage() {
           fileInputRef={fileInputRef}
           isUploading={uploadMutation.isPending}
           uploadError={uploadError}
+          onDeleteDocument={handleDeleteDocument}
+          deletingDocId={deletingDocId}
+          isDeletingDocument={deleteDocumentMutation.isPending}
         />
         <RunInsightsPanel snapshot={snapshot} />
       </section>
@@ -474,15 +595,21 @@ function DocumentsSection({
   fileInputRef,
   isUploading,
   uploadError,
+  onDeleteDocument,
+  deletingDocId,
+  isDeletingDocument,
 }: {
   documents: RunDocument[];
   selectedDocId: string | null;
   onSelect: (id: string) => void;
   onBrowseClick: () => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
+  fileInputRef: MutableRefObject<HTMLInputElement | null>;
   isUploading: boolean;
   uploadError: string | null;
+  onDeleteDocument: (docId: string) => void;
+  deletingDocId: string | null;
+  isDeletingDocument: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -517,30 +644,46 @@ function DocumentsSection({
         <ul className="flex flex-col gap-2">
           {documents.map((doc) => {
             const isSelected = selectedDocId === doc.id;
+            const isDeleting = deletingDocId === doc.id;
             return (
               <li key={doc.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(doc.id)}
-                  className={`flex w-full flex-col gap-1 rounded-lg border px-4 py-3 text-left text-sm transition ${
-                    isSelected
-                      ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
-                      : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-                  }`}
-                >
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{doc.name}</span>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span>{formatDate(doc.uploadedAt)}</span>
-                    <span>•</span>
-                    <span>{doc.ocrDone ? "OCR done" : "OCR pending"}</span>
-                    {doc.validated != null ? (
-                      <>
-                        <span>•</span>
-                        <span>{doc.validated ? "Validated" : "Needs validation"}</span>
-                      </>
-                    ) : null}
-                  </div>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(doc.id)}
+                    disabled={isDeleting}
+                    className={`flex flex-1 flex-col gap-1 rounded-lg border px-4 py-3 text-left text-sm transition ${
+                      isSelected
+                        ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
+                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                    } ${isDeleting ? "opacity-60" : ""}`}
+                  >
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{doc.name}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <span>{formatDate(doc.uploadedAt)}</span>
+                      <span>•</span>
+                      <span>{doc.ocrDone ? "OCR done" : "OCR pending"}</span>
+                      {doc.validated != null ? (
+                        <>
+                          <span>•</span>
+                          <span>{doc.validated ? "Validated" : "Needs validation"}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    className="h-8 w-8 flex-shrink-0 p-0 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    aria-label={`Delete document ${doc.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDeleteDocument(doc.id);
+                    }}
+                    disabled={isDeletingDocument}
+                  >
+                    {isDeleting ? <Spinner size={14} /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </div>
               </li>
             );
           })}

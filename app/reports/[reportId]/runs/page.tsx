@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, RefreshCcw, FileText } from "lucide-react";
+import { Plus, RefreshCcw, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,7 +13,7 @@ import { BackButton } from "@/components/back-button";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useRunSession } from "@/context/run-session-context";
 import { getReport, getReportSignature } from "@/lib/api/reports";
-import { createRunForReport, fetchRunsForReport } from "@/lib/api/runs";
+import { createRunForReport, deleteRun, fetchRunsForReport } from "@/lib/api/runs";
 import type { ReportSignature, Run } from "@/lib/api/types";
 import { queryKeys } from "@/lib/query-keys";
 import { extractErrorMessage } from "@/lib/api/client";
@@ -22,9 +22,10 @@ export default function ReportRunsPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { setReport, setRunId, setSnapshot } = useRunSession();
+  const { state: sessionState, setReport, setRunId, setSnapshot } = useRunSession();
 
   const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [runIdDeleting, setRunIdDeleting] = useState<string | null>(null);
 
   const reportQuery = useQuery({
     queryKey: queryKeys.report(reportId),
@@ -79,12 +80,50 @@ export default function ReportRunsPage() {
     },
   });
 
+  const deleteRunMutation = useMutation({
+    mutationFn: (targetRunId: string) => deleteRun(targetRunId),
+    onMutate: (targetRunId) => {
+      setRunIdDeleting(targetRunId);
+    },
+    onSuccess: async (_, targetRunId) => {
+      toast.success("Run deleted.");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.runs(reportId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.report(reportId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.reports({ q: "" }) });
+      queryClient.removeQueries({ queryKey: queryKeys.run(targetRunId) });
+      if (sessionState.runId === targetRunId) {
+        setRunId(null);
+        setSnapshot(null);
+      }
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error));
+    },
+    onSettled: () => {
+      setRunIdDeleting(null);
+    },
+  });
+
   const runs = useMemo<Run[]>(() => runsQuery.data ?? [], [runsQuery.data]);
   const signature = (signatureQuery.data ?? null) as ReportSignature | null;
   const report = reportQuery.data;
   const isLoading = reportQuery.isLoading || runsQuery.isLoading;
   const hasError = reportQuery.isError;
   const reportLabel = report?.name ?? `Report ${reportId}`;
+
+  const handleDeleteRun = async (run: Run) => {
+    const confirmed = window.confirm(
+      `Delete run ${run.id}? Uploaded documents and generated outputs will be removed.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await deleteRunMutation.mutateAsync(run.id);
+    } catch {
+      // Error handled in mutation callbacks.
+    }
+  };
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-6 pb-12 lg:p-8">
@@ -174,12 +213,15 @@ export default function ReportRunsPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Updated
                   </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="py-12">
+                    <td colSpan={5} className="py-12">
                       <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                         <Spinner />
                         <span className="text-sm">Loading runs...</span>
@@ -188,7 +230,7 @@ export default function ReportRunsPage() {
                   </tr>
                 ) : runs.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-12">
+                    <td colSpan={5} className="py-12">
                       <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
                         <span className="text-sm">
                           No runs found. Create one to begin processing documents.
@@ -225,6 +267,26 @@ export default function ReportRunsPage() {
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300">
                         {formatDate(run.updatedAt)}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <Button
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                          aria-label={`Delete run ${run.id}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDeleteRun(run);
+                          }}
+                          disabled={
+                            deleteRunMutation.isPending && runIdDeleting === run.id
+                          }
+                        >
+                          {deleteRunMutation.isPending && runIdDeleting === run.id ? (
+                            <Spinner size={14} />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
                       </td>
                     </tr>
                   ))

@@ -47,3 +47,10 @@ export const getReportSignature = (reportId: string | number) => {
     url: `/reports/${reportId}/signature`,
   });
 };
+
+export const deleteReport = (reportId: string | number) => {
+  return request<void>({
+    method: "DELETE",
+    url: `/reports/${reportId}`,
+  });
+};

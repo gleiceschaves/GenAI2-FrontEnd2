@@ -136,3 +136,17 @@ export const fetchRunOutput = (runId: string) => {
     url: `/outputs/${runId}`,
   });
 };
+
+export const deleteRun = (runId: string) => {
+  return request<void>({
+    method: "DELETE",
+    url: `/runs/${runId}`,
+  });
+};
+
+export const deleteRunDocument = (runId: string, docId: string) => {
+  return request<void>({
+    method: "DELETE",
+    url: `/runs/${runId}/documents/${docId}`,
+  });
+};
