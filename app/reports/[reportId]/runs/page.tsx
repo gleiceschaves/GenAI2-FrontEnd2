@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { BackButton } from "@/components/back-button";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useRunSession } from "@/context/run-session-context";
 import { getReport, getReportSignature } from "@/lib/api/reports";
 import { createRunForReport, fetchRunsForReport } from "@/lib/api/runs";
@@ -83,10 +84,19 @@ export default function ReportRunsPage() {
   const report = reportQuery.data;
   const isLoading = reportQuery.isLoading || runsQuery.isLoading;
   const hasError = reportQuery.isError;
+  const reportLabel = report?.name ?? `Report ${reportId}`;
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-6 pb-12 lg:p-8">
-      <BackButton fallbackHref="/reports" label="Back to reports" className="self-start" />
+      <div className="flex flex-col gap-2 self-start">
+        <BackButton fallbackHref="/reports" label="Back to reports" className="self-start" />
+        <Breadcrumbs
+          items={[
+            { label: "Reports", href: "/reports" },
+            { label: reportLabel },
+          ]}
+        />
+      </div>
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">

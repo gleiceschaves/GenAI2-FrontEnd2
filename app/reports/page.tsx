@@ -11,7 +11,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { BackButton } from "@/components/back-button";
 import { useRunSession } from "@/context/run-session-context";
 import { extractErrorMessage } from "@/lib/api/client";
 import { createReport, fetchReports } from "@/lib/api/reports";
@@ -83,7 +82,6 @@ export default function ReportsPage() {
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-6 pb-12 lg:p-8">
-      <BackButton fallbackHref="/" className="self-start" />
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-semibold leading-tight tracking-tight">Reports</h1>
