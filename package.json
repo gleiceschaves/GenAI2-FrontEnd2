@@ -15,17 +15,17 @@
   "dependencies": {
     "@copilotkit/react-core": "^1.10.5",
     "@copilotkit/react-textarea": "^1.10.5",
-    "@copilotkit/react-ui": "^1.10.5",
+    "@copilotkit/react-ui": "^0.2.0",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-query-devtools": "^5.90.2",
     "axios": "^1.12.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",
-    "next": "15.5.4",
+    "next": "15.5.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "tailwind-merge": "^3.3.1",
     "sonner": "^1.5.0",
+    "tailwind-merge": "^3.3.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
